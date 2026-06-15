@@ -1,0 +1,26 @@
+"""initial_schema
+
+Revision ID: f7b84db08d70
+Revises: 255d769743e8
+Create Date: 2026-06-14 22:52:48.075190
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = 'f7b84db08d70'
+down_revision: Union[str, None] = '255d769743e8'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    pass
+
+
+def downgrade() -> None:
+    pass

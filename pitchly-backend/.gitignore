@@ -1,6 +1,6 @@
 venv/
-\_\_pycache\_\_/
-\*.pyc
+__pycache__/
+*.pyc
 .env
-\*.egg-info/
-.pytest\_cache/
+*.egg-info/
+.pytest_cache/
