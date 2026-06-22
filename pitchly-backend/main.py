@@ -1,11 +1,16 @@
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+import logging
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.auth import get_user_id_from_authorization
 from app.config import get_settings
-from app.storage import upload_session_video
+from routers import auth, dashboard, results, session, upload
 
 settings = get_settings()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 app = FastAPI(title="Pitchly API", version="0.1.0")
 
@@ -17,28 +22,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(session.router)
+app.include_router(upload.router)
+app.include_router(results.router)
+app.include_router(dashboard.router)
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    # Responsibility: Report API health and active storage backend.
     return {
         "status": "ok",
         "environment": settings.environment,
         "storage_bucket": settings.supabase_storage_bucket,
     }
-
-
-@app.post("/sessions/{session_id}/video")
-async def upload_video(
-    session_id: str,
-    video: UploadFile = File(...),
-    authorization: str | None = Header(default=None),
-) -> dict[str, str]:
-    try:
-        user_id = get_user_id_from_authorization(authorization)
-        return await upload_session_video(
-            user_id=user_id,
-            session_id=session_id,
-            upload=video,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -1,6 +1,9 @@
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.supabase_client import get_supabase_admin
+
+security = HTTPBearer(auto_error=False)
 
 
 def get_user_id_from_authorization(authorization: str | None) -> str:
@@ -22,3 +25,31 @@ def get_user_id_from_authorization(authorization: str | None) -> str:
         raise HTTPException(status_code=401, detail="Invalid Supabase token")
 
     return user_id
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+):
+    # Responsibility: Verify Supabase bearer tokens for protected endpoints.
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+        )
+
+    try:
+        response = get_supabase_admin().auth.get_user(credentials.credentials)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        ) from exc
+
+    user = getattr(response, "user", None)
+    if not getattr(user, "id", None):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    return user
