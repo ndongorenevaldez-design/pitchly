@@ -1,4 +1,13 @@
 {
+  "name": "pitchly-workspace",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm --prefix pitchly run dev",
+    "dev:backend": "cd pitchly-backend && python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000",
+    "build": "npm --prefix pitchly run build",
+    "install:frontend": "npm --prefix pitchly install",
+    "install:backend": "python -m pip install -r pitchly-backend/requirements.txt"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
     "axios": "^1.17.0",

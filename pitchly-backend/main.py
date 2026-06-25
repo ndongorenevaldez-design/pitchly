@@ -1,3 +1,6 @@
+# Responsibility: FastAPI application entry point
+# Wires together CORS, routers, and logging — NO business logic here
+
 import logging
 
 from fastapi import FastAPI
@@ -9,14 +12,21 @@ from routers import auth, dashboard, results, session, upload
 settings = get_settings()
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
 )
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Pitchly API", version="0.1.0")
+app = FastAPI(
+    title="Pitchly API",
+    description="AI Communication Coaching Backend",
+    version="1.0.0",
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url=None,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,11 +39,12 @@ app.include_router(results.router)
 app.include_router(dashboard.router)
 
 
+@app.get("/")
+async def root():
+    return {"status": "Pitchly API is running", "environment": settings.environment}
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    # Responsibility: Report API health and active storage backend.
-    return {
-        "status": "ok",
-        "environment": settings.environment,
-        "storage_bucket": settings.supabase_storage_bucket,
-    }
+async def health():
+    # Responsibility: Report API health — Railway uses this for liveness checks.
+    return {"status": "ok"}

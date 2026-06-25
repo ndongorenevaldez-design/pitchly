@@ -1,0 +1,28 @@
+# ── Python backend ──────────────────────────
+pitchly-backend/venv/
+pitchly-backend/__pycache__/
+pitchly-backend/*.pyc
+pitchly-backend/**/__pycache__/
+pitchly-backend/**/*.pyc
+pitchly-backend/.env
+pitchly-backend/*.egg-info/
+pitchly-backend/.pytest_cache/
+pitchly-backend/*.pt
+pitchly-backend/.coverage
+pitchly-backend/htmlcov/
+
+# ── React frontend ───────────────────────────
+pitchly/node_modules/
+pitchly/dist/
+pitchly/.env
+pitchly/.env.local
+pitchly/.env.production
+pitchly/.DS_Store
+pitchly/coverage/
+
+# ── General ──────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.local/
