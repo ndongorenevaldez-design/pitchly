@@ -1,0 +1,12 @@
+# Overrides railpack — uses Nixpacks which handles heavy Python packages better
+[phases.setup]
+nixPkgs = ["python311", "ffmpeg", "libglib2.0", "libgl1-mesa-glx"]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install --no-cache-dir -r requirements.txt"
+]
+
+[start]
+cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"

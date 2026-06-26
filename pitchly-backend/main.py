@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from routers import auth, dashboard, results, session, upload
 
 settings = get_settings()
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
@@ -32,19 +32,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(session.router)
-app.include_router(upload.router)
-app.include_router(results.router)
-app.include_router(dashboard.router)
+# Safe imports — app starts even if a router is not yet implemented
+try:
+    from routers import auth
+    app.include_router(auth.router)
+    logger.info("Auth router loaded")
+except ImportError as e:
+    logger.warning("Auth router not available: %s", e)
+
+try:
+    from routers import session
+    app.include_router(session.router)
+    logger.info("Session router loaded")
+except ImportError as e:
+    logger.warning("Session router not available: %s", e)
+
+try:
+    from routers import upload
+    app.include_router(upload.router)
+    logger.info("Upload router loaded")
+except ImportError as e:
+    logger.warning("Upload router not available: %s", e)
+
+try:
+    from routers import results
+    app.include_router(results.router)
+    logger.info("Results router loaded")
+except ImportError as e:
+    logger.warning("Results router not available: %s", e)
+
+try:
+    from routers import dashboard
+    app.include_router(dashboard.router)
+    logger.info("Dashboard router loaded")
+except ImportError as e:
+    logger.warning("Dashboard router not available: %s", e)
 
 
 @app.get("/")
 async def root():
-    return {"status": "Pitchly API is running", "environment": settings.environment}
+    return {
+        "status": "Pitchly API is running",
+        "environment": settings.environment,
+    }
 
 
 @app.get("/health")
 async def health():
-    # Responsibility: Report API health — Railway uses this for liveness checks.
+    # Railway uses this endpoint for liveness checks
     return {"status": "ok"}
