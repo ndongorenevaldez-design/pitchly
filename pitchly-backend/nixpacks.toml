@@ -13,10 +13,11 @@ nixLibs = ["...", "libGL", "glib"]
 
 [phases.install]
 cmds = [
-  "pip install --upgrade pip",
-  "pip install --no-cache-dir torch==2.3.1 torchaudio==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu",
+  "python -m venv /tmp/venv",
+  "/tmp/venv/bin/pip install --upgrade pip",
+  "/tmp/venv/bin/pip install --no-cache-dir torch==2.3.1 torchaudio==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu",
   "grep -Ev '^(torch|torchaudio|torchvision)([=<>]|$)' requirements.txt > /tmp/requirements-slim.txt",
-  "pip install --no-cache-dir -r /tmp/requirements-slim.txt"
+  "/tmp/venv/bin/pip install --no-cache-dir -r /tmp/requirements-slim.txt"
 ]
 
 [start]
