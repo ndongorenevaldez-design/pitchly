@@ -1,26 +1,47 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+import logging
 
-from app.auth import get_current_user
-from app.storage import upload_session_video
-from services.session_store import attach_video_url
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 
+from dependencies import get_current_user
+from services import job_store, session_store
+from services.analysis_pipeline import run_analysis_pipeline
+from services.storage import upload_session_video
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
 @router.post("/{session_id}")
 async def upload_video(
     session_id: str,
+    background_tasks: BackgroundTasks,
     video: UploadFile = File(...),
     user=Depends(get_current_user),
 ) -> dict[str, str]:
-    # Responsibility: Upload authenticated session videos to Supabase Storage.
+    """Upload video and queue the analysis pipeline."""
+    if not session_store.get_session_for_user(session_id, user.id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    job_id = job_store.get_job_id_for_session(session_id)
+    if not job_id:
+        raise HTTPException(status_code=400, detail="No analysis job found for this session")
+
     try:
         stored = await upload_session_video(
             user_id=user.id,
             session_id=session_id,
             upload=video,
         )
-        attach_video_url(session_id, stored["signed_url"])
-        return stored
+        session_store.attach_video_url(session_id, stored["signed_url"])
+        job_store.bind_storage_path(job_id, stored["path"])
+        job_store.mark_processing(job_id, session_id)
+        background_tasks.add_task(
+            run_analysis_pipeline,
+            job_id,
+            session_id,
+            stored["path"],
+        )
+        logger.info("Upload complete: session_id=%s job_id=%s", session_id, job_id)
+        return {"job_id": job_id, **stored}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

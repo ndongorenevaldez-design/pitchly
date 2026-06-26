@@ -1,18 +1,19 @@
+# Responsibility: Supabase sessions + results tables only
+
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
-from threading import Lock
+from typing import Any
 from uuid import uuid4
 
 from app.supabase_client import get_supabase_admin
 from schemas.session import SessionCreate
 
-_jobs: dict[str, dict[str, str | None]] = {}
-_lock = Lock()
+logger = logging.getLogger(__name__)
 
 
 def create_session(user_id: str, payload: SessionCreate) -> str:
-    # Responsibility: Persist session metadata in Supabase.
     session_id = str(uuid4())
     data = {
         "id": session_id,
@@ -24,30 +25,27 @@ def create_session(user_id: str, payload: SessionCreate) -> str:
         "status": "processing",
     }
     get_supabase_admin().table("sessions").insert(data).execute()
+    logger.info("Session created: session_id=%s user_id=%s", session_id, user_id)
     return session_id
 
 
-def create_job(session_id: str) -> str:
-    job_id = str(uuid4())
-    with _lock:
-        _jobs[job_id] = {"status": "processing", "session_id": session_id, "error": None}
-    return job_id
+def get_session(session_id: str) -> dict[str, Any] | None:
+    response = (
+        get_supabase_admin()
+        .table("sessions")
+        .select("*")
+        .eq("id", session_id)
+        .execute()
+    )
+    rows = response.data or []
+    return rows[0] if rows else None
 
 
-def get_job(job_id: str) -> dict[str, str | None] | None:
-    with _lock:
-        job = _jobs.get(job_id)
-        return dict(job) if job else None
-
-
-def mark_job_complete(job_id: str, session_id: str) -> None:
-    with _lock:
-        _jobs[job_id] = {"status": "complete", "session_id": session_id, "error": None}
-
-
-def mark_job_error(job_id: str, session_id: str, error: str) -> None:
-    with _lock:
-        _jobs[job_id] = {"status": "error", "session_id": session_id, "error": error}
+def get_session_for_user(session_id: str, user_id: str) -> dict[str, Any] | None:
+    session = get_session(session_id)
+    if session and session.get("user_id") == user_id:
+        return session
+    return None
 
 
 def attach_video_url(session_id: str, signed_url: str) -> None:
@@ -62,20 +60,40 @@ def update_session_status(session_id: str, status: str) -> None:
     ).execute()
 
 
-def create_demo_result(session_id: str, mode: str) -> None:
-    now = datetime.now(UTC).isoformat()
-    result = {
+def get_result(session_id: str) -> dict[str, Any] | None:
+    response = (
+        get_supabase_admin()
+        .table("results")
+        .select("*")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    rows = response.data or []
+    return rows[0] if rows else None
+
+
+def save_result(session_id: str, result: dict[str, Any]) -> None:
+    payload = {
         "session_id": session_id,
-        "transcript": "Demo transcript generated for the local presentation flow.",
-        "score_clarity": 82,
-        "score_confidence": 76,
-        "score_structure": 79,
-        "score_relevance": 84,
-        "score_listening": 72 if mode == "social" else 80,
-        "score_global": 79,
-        "feedback_text": "Strong opening and clear intent. Add one concrete example, slow down slightly on transitions, and close with a sharper summary.",
-        "posture_notes": "Camera framing is stable. Keep shoulders relaxed and hold eye contact during key points.",
-        "emotion_summary": {"dominant": "confident", "hesitations": "moderate"},
-        "created_at": now,
+        "transcript": result.get("transcript"),
+        "score_clarity": _clamp_score(result.get("score_clarity")),
+        "score_confidence": _clamp_score(result.get("score_confidence")),
+        "score_structure": _clamp_score(result.get("score_structure")),
+        "score_relevance": _clamp_score(result.get("score_relevance")),
+        "score_listening": _clamp_score(result.get("score_listening")),
+        "score_global": _clamp_score(result.get("score_global")),
+        "feedback_text": result.get("feedback_text"),
+        "posture_notes": result.get("posture_notes"),
+        "emotion_summary": result.get("emotion_summary") or {},
+        "created_at": datetime.now(UTC).isoformat(),
     }
-    get_supabase_admin().table("results").upsert(result).execute()
+    get_supabase_admin().table("results").upsert(payload).execute()
+    logger.info("Result saved: session_id=%s score=%s", session_id, payload["score_global"])
+
+
+def _clamp_score(value: Any) -> int:
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        score = 0
+    return max(0, min(100, score))

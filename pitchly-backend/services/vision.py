@@ -124,8 +124,8 @@ def analyze_emotions(video_path: str) -> dict:
                 )
                 if analysis:
                     emotions_detected.append(analysis[0]["dominant_emotion"])
-            except Exception:
-                pass  # skip frames where face detection fails
+            except Exception as frame_exc:
+                logger.debug("Face detection skipped for frame: %s", str(frame_exc))
 
         cap.release()
 

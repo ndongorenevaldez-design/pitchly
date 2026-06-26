@@ -1,11 +1,22 @@
-# Overrides railpack — uses Nixpacks which handles heavy Python packages better
+# Railway build config — Nixpacks handles heavy Python/ML dependencies.
+# CPU-only PyTorch keeps the image small enough to deploy on Railway.
+
+providers = ["python"]
+
+[variables]
+PIP_DEFAULT_TIMEOUT = "300"
+PIP_NO_CACHE_DIR = "1"
+
 [phases.setup]
-nixPkgs = ["python311", "ffmpeg", "libglib2.0", "libgl1-mesa-glx"]
+nixPkgs = ["...", "ffmpeg", "libGL", "glib"]
+nixLibs = ["...", "libGL", "glib"]
 
 [phases.install]
 cmds = [
   "pip install --upgrade pip",
-  "pip install --no-cache-dir -r requirements.txt"
+  "pip install --no-cache-dir torch==2.3.1 torchaudio==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu",
+  "grep -Ev '^(torch|torchaudio|torchvision)([=<>]|$)' requirements.txt > /tmp/requirements-slim.txt",
+  "pip install --no-cache-dir -r /tmp/requirements-slim.txt"
 ]
 
 [start]

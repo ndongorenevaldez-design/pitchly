@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SessionCreate(BaseModel):
     """Payload sent by the frontend when starting a new session."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     mode: Literal["interview", "social"] = Field(
         ...,
@@ -16,6 +18,7 @@ class SessionCreate(BaseModel):
     )
     job_title: str | None = Field(
         default=None,
+        alias="jobTitle",
         max_length=150,
         description="Target job title — required for interview mode",
     )
@@ -26,6 +29,7 @@ class SessionCreate(BaseModel):
     )
     duration_s: int | None = Field(
         default=None,
+        alias="durationS",
         ge=10,
         le=300,
         description="Intended session duration in seconds",
@@ -44,6 +48,6 @@ class JobStatusResponse(BaseModel):
     """Response returned when polling job status."""
 
     job_id: str
-    status: Literal["processing", "complete", "error"]
+    status: Literal["pending_upload", "processing", "complete", "error"]
     session_id: str | None = None
     error: str | None = None

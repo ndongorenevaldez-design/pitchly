@@ -1,15 +1,18 @@
 import logging
 
-from fastapi import APIRouter, Depends
-
-from app.auth import get_current_user
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/event")
-async def log_auth_event(event: dict[str, str], user=Depends(get_current_user)):
-    # Responsibility: Record non-sensitive authentication events.
-    logger.info("Auth event: user_id=%s event=%s", user.id, event.get("type"))
+class AuthEvent(BaseModel):
+    type: str = Field(..., max_length=50, description="Event type: login, logout, signup")
+
+
+@router.post("/log")
+async def log_auth_event(event: AuthEvent) -> dict[str, str]:
+    # Responsibility: Record non-sensitive authentication events (no auth required).
+    logger.info("Auth event: type=%s", event.type)
     return {"status": "logged"}

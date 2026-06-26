@@ -1,1 +1,1 @@
-# Responsibility: Mark backend services as an importable package.
+# Responsibility: service layer package — each module owns one concern only.

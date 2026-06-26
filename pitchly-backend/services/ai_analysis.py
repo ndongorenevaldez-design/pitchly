@@ -3,15 +3,27 @@
 
 import logging
 
-import google.generativeai as genai
-
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-genai.configure(api_key=settings.gemini_api_key)
-_model = genai.GenerativeModel(settings.gemini_model)
+_model = None
+
+
+def _get_model():
+    """Lazy-load Gemini model so missing API keys do not crash app startup."""
+    global _model
+    if _model is None:
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY is not configured")
+
+        import google.generativeai as genai
+
+        genai.configure(api_key=settings.gemini_api_key)
+        _model = genai.GenerativeModel(settings.gemini_model)
+        logger.info("Gemini model configured: model=%s", settings.gemini_model)
+    return _model
 
 
 def _build_prompt(
@@ -79,7 +91,7 @@ def analyze(
     logger.info("Sending transcript to Gemini: chars=%d mode=%s", len(transcript), mode)
 
     try:
-        response = _model.generate_content(prompt)
+        response = _get_model().generate_content(prompt)
         raw = response.text.strip()
 
         # Strip markdown code fences if Gemini wraps the JSON
