@@ -1,14 +1,21 @@
-# Responsibility: speech-to-text transcription using faster-whisper (local, no API cost)
+# Responsibility: speech-to-text transcription and transcript cleaning
 # Uses faster-whisper==1.0.3 — NOT openai-whisper
 
 import logging
+import re
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_model = None  # loaded once, reused across requests
+_model = None
+
+FILLER_WORDS = {
+    "um", "uh", "er", "ah", "like", "you know", "so", "basically",
+    "actually", "literally", "i mean", "kind of", "sort of",
+    "right", "okay", "well", "hmm", "huh",
+}
 
 
 def _get_model():
@@ -22,7 +29,7 @@ def _get_model():
             _model = WhisperModel(
                 settings.whisper_model,
                 device="cpu",
-                compute_type="int8",  # int8 is fastest on CPU — critical for Railway
+                compute_type="int8",
             )
             logger.info("faster-whisper model loaded successfully")
         except ImportError:
@@ -31,11 +38,11 @@ def _get_model():
     return _model
 
 
-def transcribe(audio_path: str) -> str:
+def transcribe(audio_path: str) -> tuple[str, dict]:
     """
     Transcribe an audio file to text.
-    Returns the full transcript as a single string.
-    Raises on failure — caller handles error state.
+    Returns (cleaned_transcript, metadata) where metadata contains
+    word count, filler count, and estimated pace.
     """
     model = _get_model()
     logger.info("Starting transcription: %s", audio_path)
@@ -43,17 +50,53 @@ def transcribe(audio_path: str) -> str:
         segments, info = model.transcribe(
             audio_path,
             beam_size=5,
-            language=None,   # auto-detect: supports French and English
-            vad_filter=True, # removes silence — faster and cleaner output
+            language=None,
+            vad_filter=True,
         )
-        text = " ".join(segment.text.strip() for segment in segments)
+        raw_text = " ".join(segment.text.strip() for segment in segments)
+
+        word_count = len(raw_text.split())
+        duration_s = info.duration if info.duration else 0
+        wpm = (word_count / max(duration_s, 1)) * 60
+
+        filler_count = 0
+        lower_text = raw_text.lower()
+        for filler in FILLER_WORDS:
+            filler_count += len(re.findall(r'\b' + re.escape(filler) + r'\b', lower_text))
+
+        cleaned = raw_text
+        for filler in FILLER_WORDS:
+            cleaned = re.sub(r'\b' + re.escape(filler) + r'\b', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
+
+        pace = "optimal"
+        if wpm < 120:
+            pace = "too slow"
+        elif wpm > 180:
+            pace = "too fast"
+        elif wpm < 140:
+            pace = "slightly slow"
+        elif wpm > 160:
+            pace = "slightly fast"
+
+        metadata = {
+            "language": info.language,
+            "duration_s": round(duration_s, 1),
+            "raw_word_count": word_count,
+            "cleaned_word_count": len(cleaned.split()),
+            "filler_count": filler_count,
+            "words_per_minute": round(wpm, 1),
+            "pace_assessment": pace,
+            "filler_percentage": round(filler_count / max(word_count, 1) * 100, 1),
+        }
+
+        filler_report = "None detected" if filler_count == 0 else f"{filler_count} filler words ({metadata['filler_percentage']}%)"
         logger.info(
-            "Transcription complete: language=%s duration=%.1fs chars=%d",
-            info.language,
-            info.duration,
-            len(text),
+            "Transcription complete: lang=%s dur=%.1fs words=%d fillers=%d wpm=%.0f pace=%s",
+            info.language, duration_s, word_count, filler_count, wpm, pace,
         )
-        return text
+        return cleaned, metadata
+
     except Exception as e:
         logger.error("Transcription failed: %s", str(e))
         raise

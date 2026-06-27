@@ -32,7 +32,18 @@ async def upload_video(
             session_id=session_id,
             upload=video,
         )
-        session_store.attach_video_url(session_id, stored["signed_url"])
+        session_store.update_processing_stage(session_id, "uploaded", 10)
+
+        session_store.save_video_metadata(
+            session_id=session_id,
+            user_id=user.id,
+            storage_path=stored["path"],
+            signed_url=stored["signed_url"],
+            filename=video.filename or "pitchly-session.webm",
+            content_type=stored.get("content_type", "video/webm"),
+            file_size=video.size or 0,
+        )
+
         job_store.bind_storage_path(job_id, stored["path"])
         job_store.mark_processing(job_id, session_id)
         background_tasks.add_task(

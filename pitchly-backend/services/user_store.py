@@ -24,16 +24,29 @@ def get_profile(user_id: str) -> dict[str, Any] | None:
 
 
 def list_recent_sessions(user_id: str, limit: int = 10) -> list[dict[str, Any]]:
-    response = (
-        get_supabase_admin()
-        .table("sessions")
-        .select("*, results(*)")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return response.data or []
+    try:
+        response = (
+            get_supabase_admin()
+            .table("sessions")
+            .select("*, results(*)")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
+    except Exception as e:
+        logger.warning("Join query failed, falling back to simple select: %s", str(e))
+        response = (
+            get_supabase_admin()
+            .table("sessions")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
 
 
 def update_progress(user_id: str, mode: str, global_score: int) -> None:

@@ -5,19 +5,21 @@ export function RecordingControls({
   status,
   onStart,
   onStop,
+  disabled,
 }: {
   status: string
   onStart: () => void
   onStop: () => void
+  disabled?: boolean
 }) {
   return (
     <div className="recording-controls">
       {status !== 'recording' ? (
-        <Button onClick={onStart} icon={<span className="rec-dot" />}>
+        <Button onClick={onStart} disabled={disabled} icon={<span className="rec-dot" />}>
           Start
         </Button>
       ) : (
-        <Button variant="danger" onClick={onStop} icon={<span className="stop-icon" />}>
+        <Button variant="danger" onClick={onStop} disabled={disabled} icon={<span className="stop-icon" />}>
           Stop
         </Button>
       )}

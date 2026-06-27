@@ -1,14 +1,15 @@
 // Responsibility: Centralize every backend HTTP call.
 import axios from 'axios'
-import { supabase } from '../lib/supabase'
+import { getClientConfig } from '../lib/config'
+import { getSupabase } from '../lib/supabase'
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
+  baseURL: getClientConfig()?.apiUrl ?? 'http://localhost:8000',
   withCredentials: true,
 })
 
 client.interceptors.request.use(async (config) => {
-  const { data } = await supabase.auth.getSession()
+  const { data } = await getSupabase().auth.getSession()
   const token = data.session?.access_token
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
@@ -21,4 +22,11 @@ export const api = {
   getStatus: (jobId: string) => client.get(`/session/status/${jobId}`),
   getResults: (sessionId: string) => client.get(`/results/${sessionId}`),
   getDashboard: () => client.get('/dashboard'),
+  generateQuestions: (data: unknown) => client.post('/session/questions', data),
+  // Admin
+  getAdminStats: () => client.get('/admin/stats'),
+  getAdminUsers: () => client.get('/admin/users'),
+  getAdminSessions: (limit = 50) => client.get(`/admin/sessions?limit=${limit}`),
+  getAdminResults: (limit = 50) => client.get(`/admin/results?limit=${limit}`),
+  getAdminSessionDetail: (id: string) => client.get(`/admin/sessions/${id}`),
 }

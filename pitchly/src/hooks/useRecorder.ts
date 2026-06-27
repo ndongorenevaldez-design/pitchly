@@ -6,12 +6,19 @@ export function useRecorder() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
+  const initialStreamRef = useRef<MediaStream | null>(null)
+
+  function setInitialStream(s: MediaStream) {
+    initialStreamRef.current = s
+    setStream(s)
+  }
 
   async function start() {
-    const nextStream = await navigator.mediaDevices.getUserMedia({
+    const nextStream = initialStreamRef.current || await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
     })
+    initialStreamRef.current = null
     chunksRef.current = []
     const recorder = new MediaRecorder(nextStream)
     recorder.ondataavailable = (event) => chunksRef.current.push(event.data)
@@ -24,15 +31,18 @@ export function useRecorder() {
   function stop() {
     return new Promise<Blob>((resolve) => {
       const recorder = recorderRef.current
-      if (!recorder) resolve(new Blob([], { type: 'video/webm' }))
-      recorder!.onstop = () => {
+      if (!recorder) {
+        resolve(new Blob([], { type: 'video/webm' }))
+        return
+      }
+      recorder.onstop = () => {
         stream?.getTracks().forEach((track) => track.stop())
         setStatus('stopped')
         resolve(new Blob(chunksRef.current, { type: 'video/webm' }))
       }
-      recorder!.stop()
+      recorder.stop()
     })
   }
 
-  return { status, stream, start, stop }
+  return { status, stream, start, stop, setInitialStream }
 }

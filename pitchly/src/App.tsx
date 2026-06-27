@@ -1,7 +1,9 @@
 // Responsibility: Define Pitchly routes and protected app navigation.
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import type { ReactElement } from 'react'
+import { ConfigError } from './components/ConfigError'
 import { AuthProvider } from './auth/AuthProvider'
+import { getMissingEnvVars } from './lib/config'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { Dashboard } from './pages/Dashboard'
 import { Home } from './pages/Home'
@@ -11,6 +13,7 @@ import { Processing } from './pages/Processing'
 import { Results } from './pages/Results'
 import { Session } from './pages/Session'
 import { SocialSetup } from './pages/SocialSetup'
+import { Admin } from './pages/Admin'
 import { ForgotPassword } from './pages/auth/ForgotPassword'
 import { Login } from './pages/auth/Login'
 import { ResetPassword } from './pages/auth/ResetPassword'
@@ -23,6 +26,11 @@ function protectedPage(page: ReactElement) {
 }
 
 export default function App() {
+  const missingEnvVars = getMissingEnvVars()
+  if (missingEnvVars.length > 0) {
+    return <ConfigError missing={missingEnvVars} />
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -40,6 +48,7 @@ export default function App() {
           <Route path="/session" element={protectedPage(<Session />)} />
           <Route path="/processing" element={protectedPage(<Processing />)} />
           <Route path="/results/:sessionId" element={protectedPage(<Results />)} />
+          <Route path="/admin" element={protectedPage(<Admin />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

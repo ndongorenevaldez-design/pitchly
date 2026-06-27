@@ -1,5 +1,7 @@
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { getClientConfig } from './config'
 
 export function getApiUrl(path = '') {
+  const config = getClientConfig()
+  const apiUrl = config?.apiUrl ?? 'http://localhost:8000'
   return `${apiUrl}${path.startsWith('/') ? path : `/${path}`}`
 }
